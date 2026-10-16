@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>习惯打卡系统 V4</title>
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Microsoft YaHei",sans-serif;
+}
+
+body{
+background:#f5f7fa;
+padding:20px;
+}
+
+.container{
+max-width:1200px;
+margin:auto;
+}
+
+.card{
+background:#fff;
+padding:15px;
+border-radius:12px;
+margin-bottom:15px;
+box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+h1,h2{
+margin-bottom:15px;
+color:#333;
+}
+
+input{
+padding:8px;
+border:1px solid #ddd;
+border-radius:6px;
+margin:3px;
+}
+
+button{
+padding:8px 14px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+margin:3px;
+}
+
+.btn-green{
+background:#4CAF50;
+color:white;
+}
+
+.btn-blue{
+background:#2196F3;
+color:white;
+}
+
+.btn-orange{
+background:#FF9800;
+color:white;
+}
+
+.btn-red{
+background:#F44336;
+color:white;
+}
+
+.stats{
+display:flex;
+gap:20px;
+flex-wrap:wrap;
+}
+
+.stat{
+font-size:18px;
+font-weight:bold;
+}
+
+.habit{
+border-bottom:1px solid #eee;
+padding:12px 0;
+}
+
+.progress{
+height:12px;
+background:#eee;
+border-radius:10px;
+overflow:hidden;
+margin-top:5px;
+}
+
+.bar{
+height:100%;
+background:#4CAF50;
+}
+
+.calendar{
+display:grid;
+grid-template-columns:repeat(7,1fr);
+gap:5px;
+margin-top:15px;
+}
+
+.weekHead{
+font-weight:bold;
+text-align:center;
+padding:8px;
+}
+
+.day{
+text-align:center;
+padding:10px;
+border-radius:8px;
+cursor:pointer;
+font-size:13px;
+}
+
+.day:hover{
+transform:scale(1.05);
+}
+
+.empty{
+background:none;
+}
+
+.level0{background:#eeeeee;}
+.level1{background:#95d5b2;}
+.level2{background:#ffd166;}
+.level3{background:#f8961e;color:white;}
+.level4{background:#ef476f;color:white;}
+
+#importFile{
+display:none;
+}
+
+@media(max-width:768px){
+
+.calendar{
+font-size:12px;
+}
+
+.stats{
+flex-direction:column;
+}
+
+input{
+width:100%;
+}
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card">
+<h1>📅 习惯打卡系统 V4</h1>
+
+<input id="habitName" placeholder="习惯名称">
+
+<input
+id="habitTarget"
+type="number"
+placeholder="目标值">
+
+<input
+id="habitUnit"
+placeholder="单位">
+
+<button
+class="btn-green"
+onclick="addHabit()">
+
+新增习惯
+
+</button>
+</div>
+
+<div class="card">
+
+<div class="stats">
+
+<div class="stat">
+今日完成率：
+<span id="todayRate">0%</span>
+</div>
+
+<div class="stat">
+习惯数量：
+<span id="habitCount">0</span>
+</div>
+
+</div>
+
+</div>
+
+<div class="card">
+<h2>✅ 习惯列表</h2>
+<div id="habitList"></div>
+</div>
+
+<div class="card">
+<h2>📅 月历视图</h2>
+<div id="calendar"></div>
+</div>
+
+<div class="card">
+
+<h2>💾 数据管理</h2>
+
+<button
+class="btn-blue"
+onclick="exportData()">
+
+导出JSON
+
+</button>
+
+<button
+class="btn-orange"
+onclick="document.getElementById('importFile').click()">
+
+导入JSON
+
+</button>
+
+<input
+type="file"
+id="importFile"
+accept=".json"
+onchange="importData(event)">
+
+</div>
+
+</div>
+
+<script>
+
+let habits=
+JSON.parse(
+localStorage.getItem("habitsV4")
+) || [];
+
+function save(){
+
+localStorage.setItem(
+"habitsV4",
+JSON.stringify(habits)
+);
+
+}
+
+function today(){
+
+return new Date()
+.toISOString()
+.split("T")[0];
+
+}
+
+function addHabit(){
+
+const name=
+document.getElementById(
+"habitName"
+).value.trim();
+
+const target=
+Number(
+document.getElementById(
+"habitTarget"
+).value
+);
+
+const unit=
+document.getElementById(
+"habitUnit"
+).value.trim();
+
+if(!name){
+
+alert("请输入习惯名称");
+
+return;
+}
+
+habits.push({
+
+id:Date.now(),
+
+name:name,
+
+target:target,
+
+unit:unit,
+
+records:{}
+
+});
+
+save();
+render();
+
+document.getElementById(
+"habitName"
+).value="";
+
+document.getElementById(
+"habitTarget"
+).value="";
+
+document.getElementById(
+"habitUnit"
+).value="";
+
+}
+
+function editHabit(id){
+
+let h=
+habits.find(
+x=>x.id===id
+);
+
+let name=
+prompt(
+"习惯名称",
+h.name
+);
+
+if(!name) return;
+
+let target=
+prompt(
+"目标值",
+h.target
+);
+
+let unit=
+prompt(
+"单位",
+h.unit
+);
+
+h.name=name;
+
+h.target=
+Number(target);
+
+h.unit=unit;
+
+save();
+render();
+
+}
+
+function deleteHabit(id){
+
+if(
+!confirm(
+"确定删除？"
+)
+){
+return;
+}
+
+habits=
+habits.filter(
+x=>x.id!==id
+);
+
+save();
+render();
+
+}
+
+function updateRecord(id){
+
+let h=
+habits.find(
+x=>x.id===id
+);
+
+let value=
+prompt(
+"输入今天完成值",
+h.records[today()] || 0
+);
+
+if(value===null)
+return;
+
+h.records[today()]=
+Number(value);
+
+save();
+render();
+
+}
+
+function getRate(h,date=today()){
+
+let value=
+h.records[date] || 0;
+
+if(!h.target)
+return 0;
+
+return Math.min(
+100,
+Math.round(
+(value/h.target)*100
+)
+);
+}
+
+function renderHabits(){
+
+let list=
+document.getElementById(
+"habitList"
+);
+
+list.innerHTML="";
+
+let total=0;
+
+habits.forEach(h=>{
+
+let value=
+h.records[today()] || 0;
+
+let rate=
+getRate(h);
+
+total += rate;
+
+list.innerHTML += `
+
+<div class="habit">
+
+<b>${h.name}</b>
+
+（目标：
+${h.target}${h.unit}
+）
+
+<br><br>
+
+今日：
+${value}${h.unit}
+
+<div class="progress">
+
+<div
+class="bar"
+style="width:${rate}%">
+</div>
+
+</div>
+
+<div style="margin-top:5px">
+完成率：
+${rate}%
+</div>
+
+<button
+class="btn-green"
+onclick="updateRecord(${h.id})">
+
+打卡
+
+</button>
+
+<button
+class="btn-blue"
+onclick="editHabit(${h.id})">
+
+编辑
+
+</button>
+
+<button
+class="btn-red"
+onclick="deleteHabit(${h.id})">
+
+删除
+
+</button>
+
+</div>
+
+`;
+
+});
+
+let avg=
+habits.length
+?
+Math.round(total/habits.length)
+:
+0;
+
+document.getElementById(
+"todayRate"
+).innerText =
+avg + "%";
+
+document.getElementById(
+"habitCount"
+).innerText =
+habits.length;
+
+}
+
+function dayRate(date){
+
+if(
+habits.length===0
+)
+return 0;
+
+let total=0;
+
+habits.forEach(h=>{
+
+total +=
+getRate(h,date);
+
+});
+
+return total/
+habits.length;
+
+}
+
+function renderCalendar(){
+
+let container=
+document.getElementById(
+"calendar"
+);
+
+let now=
+new Date();
+
+let year=
+now.getFullYear();
+
+let month=
+now.getMonth();
+
+let days=
+new Date(
+year,
+month+1,
+0
+).getDate();
+
+let first=
+new Date(
+year,
+month,
+1
+).getDay();
+
+let html=
+'<div class="calendar">';
+
+const weeks=
+["日","一","二","三","四","五","六"];
+
+weeks.forEach(w=>{
+
+html += `
+<div class="weekHead">
+${w}
+</div>
+`;
+
+});
+
+for(let i=0;i<first;i++){
+
+html +=
+'<div class="day empty"></div>';
+
+}
+
+for(let d=1;d<=days;d++){
+
+let date=
+`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+
+let rate=
+dayRate(date);
+
+let level="level0";
+
+if(rate>0 && rate<30)
+level="level1";
+else if(rate>=30 && rate<60)
+level="level2";
+else if(rate>=60 && rate<90)
+level="level3";
+else if(rate>=90)
+level="level4";
+
+html += `
+
+<div
+class="day ${level}"
+onclick="showDay('${date}')">
+
+${d}
+
+</div>
+
+`;
+
+}
+
+html += '</div>';
+
+container.innerHTML=html;
+
+}
+
+function showDay(date){
+
+let text=
+date + "\n\n";
+
+habits.forEach(h=>{
+
+let value=
+h.records[date] || 0;
+
+let rate=
+getRate(h,date);
+
+text +=
+`${h.name}\n`;
+
+text +=
+`目标:${h.target}${h.unit}\n`;
+
+text +=
+`完成:${value}${h.unit}\n`;
+
+text +=
+`完成率:${rate}%\n\n`;
+
+});
+
+alert(text);
+
+}
+
+function exportData(){
+
+const data={
+
+version:"V4",
+
+exportTime:
+new Date()
+.toLocaleString(),
+
+habits:habits
+
+};
+
+const json=
+JSON.stringify(
+data,
+null,
+2
+);
+
+const blob=
+new Blob(
+[json],
+{
+type:
+"application/json"
+}
+);
+
+const url=
+URL.createObjectURL(
+blob
+);
+
+const a=
+document.createElement("a");
+
+a.href=url;
+
+a.download=
+"habit-backup.json";
+
+a.click();
+
+URL.revokeObjectURL(
+url
+);
+
+}
+
+function importData(event){
+
+const file=
+event.target.files[0];
+
+if(!file) return;
+
+const reader=
+new FileReader();
+
+reader.onload=function(e){
+
+try{
+
+const data=
+JSON.parse(
+e.target.result
+);
+
+if(data.habits){
+
+habits=
+data.habits;
+
+}else{
+
+habits=
+data;
+
+}
+
+save();
+
+render();
+
+alert(
+"导入成功"
+);
+
+}catch{
+
+alert(
+"JSON格式错误"
+);
+
+}
+
+};
+
+reader.readAsText(file);
+
+}
+
+function render(){
+
+renderHabits();
+
+renderCalendar();
+
+save();
+
+}
+
+render();
+
+</script>
+
+</body>
+</html>
